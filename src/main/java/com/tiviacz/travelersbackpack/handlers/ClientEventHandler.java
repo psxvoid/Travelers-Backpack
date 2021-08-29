@@ -26,29 +26,26 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 @Mod.EventBusSubscriber(modid = TravelersBackpack.MODID, value = Dist.CLIENT)
-public class ClientEventHandler
-{
+public class ClientEventHandler {
+    private static boolean isCyclePressed = false;
+
     @SubscribeEvent
-    public static void onGuiOpen(GuiOpenEvent event)
-    {
+    public static void onGuiOpen(GuiOpenEvent event) {
         Screen gui = event.getGui();
 
-        if(TravelersBackpackConfig.CLIENT.displayWarning.get() && gui instanceof MainMenuScreen)
-        {
-            event.setGui(new WarningScreen((MainMenuScreen)gui));
+        if (TravelersBackpackConfig.CLIENT.displayWarning.get() && gui instanceof MainMenuScreen) {
+            event.setGui(new WarningScreen((MainMenuScreen) gui));
             TravelersBackpackConfig.CLIENT.displayWarning.set(false);
         }
     }
 
     @SubscribeEvent
-    public static void renderExperienceBar(RenderGameOverlayEvent.Post event)
-    {
-        if(TravelersBackpackConfig.CLIENT.overlay.enableOverlay.get())
-        {
-            if(event.getType() != RenderGameOverlayEvent.ElementType.HOTBAR || event.isCanceled()) return;
+    public static void renderExperienceBar(RenderGameOverlayEvent.Post event) {
+        if (TravelersBackpackConfig.CLIENT.overlay.enableOverlay.get()) {
+            if (event.getType() != RenderGameOverlayEvent.ElementType.HOTBAR || event.isCanceled())
+                return;
 
-            if(CapabilityUtils.isWearingBackpack(Minecraft.getInstance().player))
-            {
+            if (CapabilityUtils.isWearingBackpack(Minecraft.getInstance().player)) {
                 OverlayScreen gui = new OverlayScreen();
                 gui.renderOverlay(event.getMatrixStack());
             }
@@ -56,66 +53,53 @@ public class ClientEventHandler
     }
 
     @SubscribeEvent
-    public static void clientTickEvent(final TickEvent.ClientTickEvent event)
-    {
-        if(event.phase != TickEvent.Phase.END) return;
+    public static void clientTickEvent(final TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END)
+            return;
 
         ClientPlayerEntity player = Minecraft.getInstance().player;
 
-        if(player != null && CapabilityUtils.isWearingBackpack(player))
-        {
-            if(ModClientEventHandler.OPEN_INVENTORY.isPressed())
-            {
-                TravelersBackpack.NETWORK.sendToServer(new ScreenPacket(Reference.BACKPACK_GUI, Reference.FROM_KEYBIND));
+        if (player != null && CapabilityUtils.isWearingBackpack(player)) {
+            if (ModClientEventHandler.OPEN_INVENTORY.isPressed()) {
+                TravelersBackpack.NETWORK
+                        .sendToServer(new ScreenPacket(Reference.BACKPACK_GUI, Reference.FROM_KEYBIND));
             }
 
-            if(player.getHeldItemMainhand().getItem() instanceof HoseItem && player.getHeldItemMainhand().getTag() != null)
-            {
-                if(ModClientEventHandler.TOGGLE_TANK.isPressed())
-                {
+            if (player.getHeldItemMainhand().getItem() instanceof HoseItem
+                    && player.getHeldItemMainhand().getTag() != null) {
+                if (ModClientEventHandler.TOGGLE_TANK.isPressed()) {
                     TravelersBackpack.NETWORK.sendToServer(new CycleToolPacket(0, Reference.TOGGLE_HOSE_TANK));
                 }
             }
         }
-    }
 
-    @SubscribeEvent
-    public static void mouseWheelDetect(InputEvent.MouseScrollEvent event)
-    {
-        Minecraft mc = Minecraft.getInstance();
         KeyBinding key1 = ModClientEventHandler.CYCLE_TOOL;
-        double scrollDelta = event.getScrollDelta();
 
-        if(scrollDelta != 0.0)
-        {
-            ClientPlayerEntity player = mc.player;
+        boolean shouldHandle = false;
 
-            if(player != null && player.isAlive() && key1.isKeyDown())
-            {
-                ItemStack backpack = CapabilityUtils.getWearingBackpack(player);
+        if (!isCyclePressed && key1.isKeyDown()) {
+            shouldHandle = true;
+            isCyclePressed = true;
+        } else if (isCyclePressed && !key1.isPressed()) {
+            isCyclePressed = false;
+        }
 
-                if(backpack != null && backpack.getItem() instanceof TravelersBackpackItem)
-                {
-                    if(!player.getHeldItemMainhand().isEmpty())
-                    {
-                        ItemStack heldItem = player.getHeldItemMainhand();
+        if (player != null && player.isAlive() && shouldHandle) {
+            ItemStack backpack = CapabilityUtils.getWearingBackpack(player);
 
-                        if(TravelersBackpackConfig.CLIENT.enableToolCycling.get())
-                        {
-                            if(ToolSlotItemHandler.isValid(heldItem))
-                            {
-                                TravelersBackpack.NETWORK.sendToServer(new CycleToolPacket(scrollDelta, Reference.CYCLE_TOOL_ACTION));
-                                event.setCanceled(true);
-                            }
+            if (backpack != null && backpack.getItem() instanceof TravelersBackpackItem) {
+                if (!player.getHeldItemMainhand().isEmpty()) {
+                    ItemStack heldItem = player.getHeldItemMainhand();
+
+                    if (TravelersBackpackConfig.CLIENT.enableToolCycling.get()) {
+                        if (ToolSlotItemHandler.isValid(heldItem)) {
+                            TravelersBackpack.NETWORK.sendToServer(new CycleToolPacket(0.1, Reference.CYCLE_TOOL_ACTION));
                         }
+                    }
 
-                        if(heldItem.getItem() instanceof HoseItem)
-                        {
-                            if(heldItem.getTag() != null)
-                            {
-                                TravelersBackpack.NETWORK.sendToServer(new CycleToolPacket(scrollDelta, Reference.SWITCH_HOSE_ACTION));
-                                event.setCanceled(true);
-                            }
+                    if (heldItem.getItem() instanceof HoseItem) {
+                        if (heldItem.getTag() != null) {
+                            TravelersBackpack.NETWORK.sendToServer(new CycleToolPacket(0.1, Reference.SWITCH_HOSE_ACTION));
                         }
                     }
                 }
